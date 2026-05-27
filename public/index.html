@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Monitoring Service</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <style>
+    body {font-family: Arial, sans-serif; margin: 2rem; background:#f7f7f7;}
+    .container {max-width: 800px; margin:auto; background:#fff; padding:1.5rem; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,.1);}
+    h1 {color:#2c3e50;}
+    .form-group {margin-bottom:1rem;}
+    label {display:block; margin-bottom:.3rem; font-weight:bold;}
+    input, textarea, select {width:100%; padding:.5rem; border:1px solid #ccc; border-radius:4px;}
+    button {padding:.6rem 1.2rem; background:#2980b9; color:#fff; border:none; border-radius:4px; cursor:pointer;}
+    button:hover {background:#1c5980;}
+    pre {background:#f4f4f4; padding:.8rem; border-radius:4px;}
+  </style>
+</head>
+<body>
+  <div id="app" class="container">
+    <h1>🔧 Monitoring Service</h1>
+
+    <h2>Create a new monitor</h2>
+    <p>Fill the form below – this will be saved under a user‑ID you choose.</p>
+
+    <div id="monitor-form">
+      <form @submit.prevent="saveConfig">
+        <div class="form-group">
+          <label>User ID (e.g. alice_123)</label>
+          <input type="text" v-model="userId" required placeholder="alice_123"/>
+        </div>
+
+        <div class="form-group">
+          <label>Destination Phone (WhatsApp)</label>
+          <input type="text" v-model="phone" required placeholder="+436991234567"/>
+        </div>
+
+        <h3>Sources</h3>
+        <div v-for="(src,i) in sources" :key="i">
+          <hr/>
+          <div class="form-group">
+            <label>URL</label>
+            <input type="url" v-model="sources[i].url" placeholder="https://example.com/search?q=..." required/>
+          </div>
+          <div class="form-group">
+            <label>Selector (CSS selector for result items)</label>
+            <input type="text" v-model="sources[i].selector" placeholder=".result"/>
+          </div>
+          <div class="form-group">
+            <label>Keywords (comma‑separated)</label>
+            <input type="text" v-model="sources[i].keywords" placeholder="keyword1,keyword2"/>
+          </div>
+          <div class="form-group">
+            <label>Login (optional – JSON string)</label>
+            <textarea rows="2" v-model="sources[i].login">{{sources[i].login}}</textarea>
+          </div>
+          <div class="form-group">
+            <label>Enabled</label>
+            <input type="checkbox" v-model="sources[i].enabled" />
+          </div>
+        </div>
+
+        <button type="button" @click="addSource">➕ Add Source</button>
+
+        <div class="form-group">
+          <label>Schedule (cron expression)</label>
+          <input type="text" v-model="schedule" placeholder="e.g. 0 8 * * *" required/>
+        </div>
+
+        <div class="form-group">
+          <label>Summary Template</label>
+          <textarea rows="4" v-model="summaryTemplate">{{summaryTemplate}}</textarea>
+        </div>
+
+        <button type="submit">💾 Save Config</button>
+      </form>
+    </div>
+
+    <h2>Saved Monitors</h2>
+    <ul>
+      <li v-for="cfg in configs" :key="cfg.userId">
+        <strong>{{cfg.userId}}</strong> – Phone: {{cfg.phone}} – Sources: {{cfg.sources.length}}
+        <br/>
+        <small>Schedule: {{cfg.schedule}}</small>
+        <button @click="runNow(cfg.userId)">▶️ Run Now</button>
+      </li>
+    </ul>
+
+    <pre>{{latestResponse}}</pre>
+  </div>
+
+  <script type="module">
+    const { createApp, ref } = Vue;
+    const app = createApp({
+      setup() {
+        const userId = ref('');
+        const phone = ref('');
+        const schedule = ref('');
+        const summaryTemplate = ref('');
+        const sources = ref([{url:'',selector:'',keywords:'',login:'',enabled:true}]);
+        const configs = ref([]);
+        const latestResponse = ref('');
+
+        fetch('/configs')
+          .then(r=>r.json())
+          .then(data=> { configs.value = data; })
+          .catch(()=> {});
+
+        const addSource = () => {
+          sources.value.push({url:'',selector:'',keywords:'',login:'',enabled:true});
+        };
+
+        async function saveConfig() {
+          if (!userId.value || !phone.value || !schedule.value) {
+            alert('userId, phone, schedule are required');
+            return;
+          }
+          const body = {
+            userId: userId.value,
+            phone: phone.value,
+            schedule: schedule.value,
+            summaryTemplate: summaryTemplate.value,
+            sources: sources.value
+          };
+          const resp = await fetch('/config', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify(body)
+          });
+          const data = await resp.json();
+          latestResponse.value = data;
+          alert('Config saved! As a mock, no cron was created.');
+        }
+
+        async function runNow(userId) {
+          const resp = await fetch(`/run/${userId}`);
+          const data = await resp.json();
+          latestResponse.value = data;
+          alert('Run triggered – check server logs for output.');
+        }
+
+        return { userId, phone, schedule, summaryTemplate, sources, addSource, saveConfig, runNow, latestResponse };
+      }
+    });
+    app.mount('#app');
+  </script>
+</body>
+</html>
