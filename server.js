@@ -8,7 +8,7 @@ const app = express();
 app.use(express.json());
 
 // Serve static assets (Vue front‑end) from ./public
-app.use(express.static(path.resolve(__dirname, 'public'));
+app.use(express.static(path.resolve(__dirname, 'public')));
 
 // Directory where per-user configs will be stored
 const CFG_DIR = path.resolve(process.env.HOME || '.', '.openclaw/monitoring/configs');
